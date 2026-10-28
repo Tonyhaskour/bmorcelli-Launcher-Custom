@@ -12,8 +12,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Manually Clone Missing Submodules
+        run: |
+          rm -rf lib/DisplayDrivers
+          git clone --depth 1 https://github.com/bmorcelli/DisplayDrivers.git lib/DisplayDrivers
 
       - name: Set up Python
         uses: actions/setup-python@v5
