@@ -26,6 +26,10 @@ static DeviceButtons buttonsCfg() {
 ** Description: initial setup for the device
 ***************************************************************************************/
 void _setup_gpio() {
+    // Keep the SD card chip-select high so it ignores display traffic
+    pinMode(SDCARD_CS, OUTPUT);
+    digitalWrite(SDCARD_CS, HIGH);
+
     // Initialize the 6 buttons
     hal_buttons_init(buttonsCfg(), 6);
 }
