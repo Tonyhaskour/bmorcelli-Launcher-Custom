@@ -36,4 +36,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: launcher-firmware
-          path: .pio/build/esp32s3-st7735-custom/firmware.bin
+          path: |
+            .pio/build/esp32s3-st7735-custom/bootloader.bin
+            .pio/build/esp32s3-st7735-custom/partitions.bin
+            .pio/build/esp32s3-st7735-custom/firmware.bin
+            **/boot_app0.bin
