@@ -36,8 +36,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: launcher-firmware
+          # Grab ALL .bin files from the build directory, plus the framework's boot_app0.bin
           path: |
-            .pio/build/esp32s3-st7735-custom/bootloader.bin
-            .pio/build/esp32s3-st7735-custom/partitions.bin
-            .pio/build/esp32s3-st7735-custom/firmware.bin
-            **/boot_app0.bin
+            .pio/build/esp32s3-st7735-custom/**/*.bin
+            ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
