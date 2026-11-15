@@ -5,10 +5,6 @@
 #include "hal/device.h"
 #include "hal/bright/bright.h"
 
-// CRITICAL FIX: Increase the loop task stack size for Wi-Fi and Keyboard operations
-// This replaces the ineffective CONFIG_ESP_MAIN_TASK_STACK_SIZE flag.
-SET_LOOP_TASK_STACK_SIZE(24 * 1024);
-
 // Button Pin Definitions (Order: Prev/Left, Next/Right, Up, Down, Sel, Esc)
 static const uint8_t BTN_PINS[6] = {4, 5, 38, 39, 15, 16};
 
@@ -64,7 +60,7 @@ void InputHandler(void) {
 
     if (!any) return;
     
-    // Wake screen on any press, swallowing the first press to prevent accidental inputs
+    // Wake screen on any press, swallowing the first press
     if (wakeUpScreen()) return;   
     
     AnyKeyPress = true;
