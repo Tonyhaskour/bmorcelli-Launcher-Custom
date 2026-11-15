@@ -2,101 +2,87 @@
 #include "powerSave.h"
 #include <interface.h>
 
-// Include the Launcher's Hardware Abstraction Layer (HAL) for buttons and backlight
 #include "hal/device.h"
-#include "hal/inputs/buttons.h"
 #include "hal/bright/bright.h"
 
-// Configure your 6 buttons to match Retro-Go
-static DeviceButtons buttonsCfg() {
-    // Order: {Prev/Left, Next/Right, Up, Down, Sel, Esc}
-    DeviceButtons cfg{
-        4,   // Left / Prev
-        5,   // Right / Next
-        38,  // Up
-        39,  // Down
-        15,  // Select (Retro-Go A)
-        16   // Esc (Retro-Go B)
-    };
-    return cfg;
-}
+// CRITICAL FIX: Increase the loop task stack size for Wi-Fi and Keyboard operations
+// This replaces the ineffective CONFIG_ESP_MAIN_TASK_STACK_SIZE flag.
+SET_LOOP_TASK_STACK_SIZE(24 * 1024);
 
-/***************************************************************************************
-** Function:    _setup_gpio()
-** Description: initial setup for the device
-***************************************************************************************/
+// Button Pin Definitions (Order: Prev/Left, Next/Right, Up, Down, Sel, Esc)
+static const uint8_t BTN_PINS[6] = {4, 5, 38, 39, 15, 16};
+
+#define DEBOUNCE_MS      25
+#define REPEAT_FIRST_MS  400
+#define REPEAT_MS        150
+
 void _setup_gpio() {
-    // Keep the SD card chip-select high so it ignores display traffic
+    // Keep SD Card CS high to prevent bus conflicts
     pinMode(SDCARD_CS, OUTPUT);
     digitalWrite(SDCARD_CS, HIGH);
 
-    // Initialize the 6 buttons
-    hal_buttons_init(buttonsCfg(), 6);
+    // Initialize button pins with internal pull-ups
+    for (uint8_t i = 0; i < 6; i++) {
+        pinMode(BTN_PINS[i], INPUT_PULLUP);
+    }
 }
 
-/***************************************************************************************
-** Function:    _post_setup_gpio()
-** Description: second stage gpio setup, run after TFT and before SD card initialization
-***************************************************************************************/
 void _post_setup_gpio() {
-    // Attach the backlight to the hardware PWM driver
     hal_bright_attach(TFT_BL);
 }
 
-/***************************************************************************************
-** Function: _late_setup_gpio()
-** Description: third stage gpio, run before bootscreen animation
-***************************************************************************************/
 void _late_setup_gpio() {}
 
-/***************************************************************************************
-** Function name: getBattery()
-** Description:   Delivers the battery value from 1-100
-***************************************************************************************/
-int getBattery() {
-    return 0;
-}
+int getBattery() { return 0; }
+bool isCharging() { return false; }
 
-/***************************************************************************************
-** Function name: isCharging()
-** Description:   true while charging: draws a bolt on the battery icon.
-***************************************************************************************/
-bool isCharging() {
-    return false;
-}
-
-/*********************************************************************
-** Function: setBrightness
-** Description: set brightness value
-**********************************************************************/
 void _setBrightness(uint8_t brightval) {
     hal_bright_set(TFT_BL, brightval);
 }
 
-/*********************************************************************
-** Function: InputHandler
-** Handles the variables PrevPress, NextPress, SelPress, AnyKeyPress and EscPress
-**********************************************************************/
 void InputHandler(void) {
-    // Poll the 6 buttons and map them to the Launcher's UI actions
-    hal_buttons_poll_6(buttonsCfg());
-    return;
+    static bool     raw[6], stable[6];
+    static uint32_t changed[6], nextFire[6];
+    const uint32_t now = millis();
+    bool fire[6] = {false};
+    bool any = false;
+
+    // Software Debounce and Auto-repeat logic
+    for (uint8_t i = 0; i < 6; i++) {
+        bool r = (digitalRead(BTN_PINS[i]) == LOW);   // Active Low
+        if (r != raw[i]) { raw[i] = r; changed[i] = now; }
+
+        if (now - changed[i] >= DEBOUNCE_MS && stable[i] != raw[i]) {
+            stable[i] = raw[i];
+            if (stable[i]) { fire[i] = true; nextFire[i] = now + REPEAT_FIRST_MS; }
+        } else if (stable[i] && (int32_t)(now - nextFire[i]) >= 0) {
+            fire[i] = true;                            // Auto-repeat while held
+            nextFire[i] = now + REPEAT_MS;
+        }
+        any |= fire[i];
+    }
+
+    if (!any) return;
+    
+    // Wake screen on any press, swallowing the first press to prevent accidental inputs
+    if (wakeUpScreen()) return;   
+    
+    AnyKeyPress = true;
+
+    if (fire[0]) PrevPress = true;
+    if (fire[1]) NextPress = true;
+    if (fire[2]) UpPress   = true;
+    if (fire[3]) DownPress = true;
+    if (fire[4]) SelPress  = true;
+    if (fire[5]) EscPress  = true;
 }
 
-/*********************************************************************
-** Function: powerOff
-** Description: Turns off the device
-**********************************************************************/
 void powerOff() {
     esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW);
     vTaskDelay(pdMS_TO_TICKS(200));
     esp_deep_sleep_start();
 }
 
-/*********************************************************************
-** Function: reboot
-** Description: Handles reboot process
-**********************************************************************/
 void reboot() {
     ESP.restart();
 }
