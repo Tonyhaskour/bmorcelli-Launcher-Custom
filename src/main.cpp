@@ -25,7 +25,7 @@
 #endif
 
 #if defined(SET_LOOP_TASK_STACK_SIZE)
-SET_LOOP_TASK_STACK_SIZE(16384)
+SET_LOOP_TASK_STACK_SIZE(24576)
 #endif
 
 // Public Globals
